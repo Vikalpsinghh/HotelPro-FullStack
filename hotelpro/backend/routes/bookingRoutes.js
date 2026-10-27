@@ -5,18 +5,17 @@ const Room = require('../models/Room');
 
 const GOOGLE_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwKwXGxvqBEClykZzcDLmvsllYaeeHmVbwiClh68QtuWCEschJZTrATUdsrMThXof-VyQ/exec";
 
-// Background silent push helper
 function syncToGoogleSheet(payload) {
   fetch(GOOGLE_SHEET_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    redirect: "follow"
   }).catch((err) => {
     console.error("Silent Sheet Sync Error:", err.message);
   });
 }
 
-// GET all bookings
 router.get('/', async (req, res) => {
   try {
     const bookings = await Booking.find().populate('roomId').sort({ createdAt: -1 });
@@ -26,7 +25,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST create a booking
 router.post('/', async (req, res) => {
   try {
     const { roomId, guestName, guestEmail, guestPhone, checkIn, checkOut, totalNights, totalAmount } = req.body;
@@ -34,7 +32,6 @@ router.post('/', async (req, res) => {
     const room = await Room.findById(roomId);
     if (!room) return res.status(404).json({ error: 'Room not found' });
 
-    // Check for overlapping bookings
     const overlappingBooking = await Booking.findOne({
       roomId,
       bookingStatus: { $in: ['Confirmed', 'Checked-In'] },
@@ -60,14 +57,13 @@ router.post('/', async (req, res) => {
 
     const savedBooking = await booking.save();
 
-    // Silent background sync to Google Sheet
     syncToGoogleSheet({
-      guestName: savedBooking.guestName,
-      guestEmail: savedBooking.guestEmail,
+      guestName: savedBooking.guestName || "N/A",
+      guestEmail: savedBooking.guestEmail || "N/A",
       roomNumber: room.roomNumber || "N/A",
       roomTitle: room.title || "N/A",
-      checkInDate: new Date(savedBooking.checkIn).toLocaleDateString("en-IN"),
-      checkOutDate: new Date(savedBooking.checkOut).toLocaleDateString("en-IN"),
+      checkInDate: savedBooking.checkIn ? new Date(savedBooking.checkIn).toLocaleDateString("en-IN") : "N/A",
+      checkOutDate: savedBooking.checkOut ? new Date(savedBooking.checkOut).toLocaleDateString("en-IN") : "N/A",
       bookingStatus: savedBooking.bookingStatus || "Confirmed",
       actualCheckInTime: "—",
       actualCheckOutTime: "—"
@@ -79,7 +75,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH check-in / check-out status
 router.patch('/:id/status', async (req, res) => {
   try {
     const { bookingStatus } = req.body;
@@ -103,14 +98,13 @@ router.patch('/:id/status', async (req, res) => {
 
     const room = await Room.findById(booking.roomId);
 
-    // Silent update sync to Google Sheet
     syncToGoogleSheet({
-      guestName: booking.guestName,
-      guestEmail: booking.guestEmail,
+      guestName: booking.guestName || "N/A",
+      guestEmail: booking.guestEmail || "N/A",
       roomNumber: room ? room.roomNumber : "N/A",
       roomTitle: room ? room.title : "N/A",
-      checkInDate: new Date(booking.checkIn).toLocaleDateString("en-IN"),
-      checkOutDate: new Date(booking.checkOut).toLocaleDateString("en-IN"),
+      checkInDate: booking.checkIn ? new Date(booking.checkIn).toLocaleDateString("en-IN") : "N/A",
+      checkOutDate: booking.checkOut ? new Date(booking.checkOut).toLocaleDateString("en-IN") : "N/A",
       bookingStatus: booking.bookingStatus,
       actualCheckInTime: booking.actualCheckInTime || "—",
       actualCheckOutTime: booking.actualCheckOutTime || "—"
