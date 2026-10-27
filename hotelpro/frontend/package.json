@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "chmod +x node_modules/.bin/react-scripts && react-scripts build"
   },
   "browserslist": {
     "production": [
