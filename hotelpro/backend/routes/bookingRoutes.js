@@ -3,6 +3,19 @@ const router = express.Router();
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 
+const GOOGLE_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwKwXGxvqBEClykZzcDLmvsllYaeeHmVbwiClh68QtuWCEschJZTrATUdsrMThXof-VyQ/exec";
+
+// Background silent push helper
+function syncToGoogleSheet(payload) {
+  fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).catch((err) => {
+    console.error("Silent Sheet Sync Error:", err.message);
+  });
+}
+
 // GET all bookings
 router.get('/', async (req, res) => {
   try {
@@ -46,6 +59,20 @@ router.post('/', async (req, res) => {
     });
 
     const savedBooking = await booking.save();
+
+    // Silent background sync to Google Sheet
+    syncToGoogleSheet({
+      guestName: savedBooking.guestName,
+      guestEmail: savedBooking.guestEmail,
+      roomNumber: room.roomNumber || "N/A",
+      roomTitle: room.title || "N/A",
+      checkInDate: new Date(savedBooking.checkIn).toLocaleDateString("en-IN"),
+      checkOutDate: new Date(savedBooking.checkOut).toLocaleDateString("en-IN"),
+      bookingStatus: savedBooking.bookingStatus || "Confirmed",
+      actualCheckInTime: "—",
+      actualCheckOutTime: "—"
+    });
+
     res.status(201).json(savedBooking);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -59,16 +86,35 @@ router.patch('/:id/status', async (req, res) => {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
-    booking.bookingStatus = bookingStatus;
-    await booking.save();
+    const currentIndianTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
+    booking.bookingStatus = bookingStatus;
     if (bookingStatus === 'Checked-In') {
+      booking.actualCheckInTime = currentIndianTime;
       await Room.findByIdAndUpdate(booking.roomId, { status: 'Occupied' });
     } else if (bookingStatus === 'Checked-Out') {
+      booking.actualCheckOutTime = currentIndianTime;
       await Room.findByIdAndUpdate(booking.roomId, { status: 'Cleaning' });
     } else if (bookingStatus === 'Cancelled') {
       await Room.findByIdAndUpdate(booking.roomId, { status: 'Available' });
     }
+
+    await booking.save();
+
+    const room = await Room.findById(booking.roomId);
+
+    // Silent update sync to Google Sheet
+    syncToGoogleSheet({
+      guestName: booking.guestName,
+      guestEmail: booking.guestEmail,
+      roomNumber: room ? room.roomNumber : "N/A",
+      roomTitle: room ? room.title : "N/A",
+      checkInDate: new Date(booking.checkIn).toLocaleDateString("en-IN"),
+      checkOutDate: new Date(booking.checkOut).toLocaleDateString("en-IN"),
+      bookingStatus: booking.bookingStatus,
+      actualCheckInTime: booking.actualCheckInTime || "—",
+      actualCheckOutTime: booking.actualCheckOutTime || "—"
+    });
 
     res.json(booking);
   } catch (err) {
