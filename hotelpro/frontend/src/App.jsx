@@ -121,15 +121,24 @@ function App() {
       return;
     }
 
-    const checkInDate = `${inDay} ${inMonth} ${inYear}`;
-    const checkOutDate = `${outDay} ${outMonth} ${outYear}`;
+    const diffTime = Math.abs(outDateObj - inDateObj);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+    const computedAmount = diffDays * (selectedRoom.pricePerNight || 0);
+
+    const checkInDateDisplay = `${inDay} ${inMonth} ${inYear}`;
+    const checkOutDateDisplay = `${outDay} ${outMonth} ${outYear}`;
 
     const payload = {
       roomId: selectedRoom._id,
       guestName,
-      guestEmail,
-      checkInDate,
-      checkOutDate
+      guestEmail: guestEmail || 'guest@example.com',
+      guestPhone: '9999999999',
+      checkIn: inDateObj.toISOString(),
+      checkOut: outDateObj.toISOString(),
+      checkInDate: checkInDateDisplay,
+      checkOutDate: checkOutDateDisplay,
+      totalNights: diffDays,
+      totalAmount: computedAmount
     };
 
     fetch(`${API_BASE_URL}/api/bookings`, {
@@ -137,15 +146,23 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          return res.json().then(data => { throw new Error(data.error || 'Booking failed'); });
+        }
+        return res.json();
+      })
       .then(() => {
-        alert(`Success! Suite #${selectedRoom.roomNumber} reserved for ${guestName} (${checkInDate} to ${checkOutDate}).`);
+        alert(`Success! Suite #${selectedRoom.roomNumber} reserved for ${guestName} (${checkInDateDisplay} to ${checkOutDateDisplay}).`);
         setSelectedRoom(null);
         setGuestName('');
         setGuestEmail('');
         loadData();
       })
-      .catch(err => console.error(err));
+      .catch(err => {
+        alert(err.message);
+        console.error(err);
+      });
   };
 
   const updateBookingStatus = (bookingId, newStatus) => {
@@ -289,8 +306,8 @@ function App() {
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{b.guestName}</td>
                       <td style={{ padding: '1rem' }}>#{b.roomId?.roomNumber || '101'} - {b.roomId?.title || 'Suite'}</td>
                       <td style={{ padding: '1rem' }}>
-                        <div><strong>In:</strong> {b.checkInDate}</div>
-                        <div><strong>Out:</strong> {b.checkOutDate}</div>
+                        <div><strong>In:</strong> {b.checkIn ? new Date(b.checkIn).toLocaleDateString("en-IN") : b.checkInDate}</div>
+                        <div><strong>Out:</strong> {b.checkOut ? new Date(b.checkOut).toLocaleDateString("en-IN") : b.checkOutDate}</div>
                       </td>
                       <td style={{ padding: '1rem', color: b.actualCheckInTime ? '#166534' : '#94a3b8', fontWeight: b.actualCheckInTime ? 600 : 400 }}>
                         {b.actualCheckInTime ? `🕒 ${b.actualCheckInTime}` : '—'}
