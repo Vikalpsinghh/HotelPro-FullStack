@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
+const API_BASE_URL = 'https://hotelpro-fullstack.onrender.com';
+
 function App() {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -89,12 +91,12 @@ function App() {
   };
 
   const loadData = () => {
-    fetch('http://localhost:5000/api/rooms')
+    fetch(`${API_BASE_URL}/api/rooms`)
       .then(res => res.json())
       .then(data => setRooms(data))
       .catch(err => console.error(err));
 
-    fetch('http://localhost:5000/api/bookings')
+    fetch(`${API_BASE_URL}/api/bookings`)
       .then(res => res.json())
       .then(data => setBookings(data))
       .catch(err => console.error(err));
@@ -130,7 +132,7 @@ function App() {
       checkOutDate
     };
 
-    fetch('http://localhost:5000/api/bookings', {
+    fetch(`${API_BASE_URL}/api/bookings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -156,7 +158,7 @@ function App() {
       updatePayload.actualCheckOutTime = currentStamp;
     }
 
-    fetch(`http://localhost:5000/api/bookings/${bookingId}/status`, {
+    fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatePayload)
@@ -205,7 +207,7 @@ function App() {
           <div className="filter-container">
             <span className="filter-label">✧ Filter by Collection</span>
             <select 
-              className="filter-select"
+              className="filter-select" 
               value={tierFilter} 
               onChange={(e) => setTierFilter(e.target.value)}
             >
