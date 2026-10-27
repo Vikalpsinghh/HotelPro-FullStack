@@ -6,14 +6,20 @@ const Room = require('../models/Room');
 const GOOGLE_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwKwXGxvqBEClykZzcDLmvsllYaeeHmVbwiClh68QtuWCEschJZTrATUdsrMThXof-VyQ/exec";
 
 function syncToGoogleSheet(payload) {
+  console.log("Triggering Google Sheet Sync for:", payload.guestName, payload.bookingStatus);
   fetch(GOOGLE_SHEET_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
     redirect: "follow"
-  }).catch((err) => {
-    console.error("Silent Sheet Sync Error:", err.message);
-  });
+  })
+    .then(async (response) => {
+      const resText = await response.text();
+      console.log("Google Sheet Sync HTTP Status:", response.status, "Response:", resText);
+    })
+    .catch((err) => {
+      console.error("Silent Sheet Sync Error:", err);
+    });
 }
 
 router.get('/', async (req, res) => {
